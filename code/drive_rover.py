@@ -51,9 +51,11 @@ class RoverState():
         self.brake = 0 # Current brake value
         self.nav_angles = None # Angles of navigable terrain pixels
         self.nav_dists = None # Distances of navigable terrain pixels
+        self.nav_rock_angles = None # Angles of rock sample pixels
+        self.nav_rock_dists = None # Distances of rock sample pixels
         self.ground_truth = ground_truth_3d # Ground truth worldmap
-        self.mode = 'forward' # Current mode (can be forward or stop)
-        self.throttle_set = 0.2 # Throttle setting when accelerating
+        self.mode = 'stop' # Current mode (can be forward or stop)
+        self.throttle_set = 0.4 # Throttle setting when accelerating
         self.brake_set = 10 # Brake setting when braking
         # The stop_forward and go_forward fields below represent total count
         # of navigable terrain pixels.  This is a very crude form of knowing
@@ -61,7 +63,7 @@ class RoverState():
         # get creative in adding new fields or modifying these!
         self.stop_forward = 50 # Threshold to initiate stopping
         self.go_forward = 500 # Threshold to go forward again
-        self.max_vel = 2 # Maximum velocity (meters/second)
+        self.max_vel = 2.0 # Maximum velocity (meters/second)
         # Image output from perception step
         # Update this image to display your intermediate analysis steps
         # on screen in autonomous mode
@@ -77,6 +79,33 @@ class RoverState():
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
+        
+        self.last_yaw = None
+        self.last_roll = None
+        self.last_pitch = None
+        
+        self.vel_history = [0, 0, 0, 0]
+        self.yawvel_history = [0, 0, 0, 0]
+        self.rollvel_history = [0, 0, 0, 0]
+        self.pitchvel_history = [0, 0, 0, 0]
+        
+        self.target_dist_side = 10
+
+        self.dist_front = None
+        self.dist_left = None
+        self.dist_right = None
+        self.last_dist_front = None
+        self.last_dist_left = None
+        self.last_dist_right = None
+        
+        self.start_forwardmode_time = None
+        self.start_stuckmode_time = None
+        
+        self.origin = None
+        self.origin_polarcoord = None
+        self.seekorigin = False
+        self.steermode = "Left"
+        
 # Initialize our rover 
 Rover = RoverState()
 
