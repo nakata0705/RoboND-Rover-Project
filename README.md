@@ -1,54 +1,82 @@
-[//]: # (Image References)
-[image_0]: ./misc/rover_image.jpg
-[![Udacity - Robotics NanoDegree Program](https://s3-us-west-1.amazonaws.com/udacity-robotics/Extra+Images/RoboND_flag.png)](https://www.udacity.com/robotics)
-# Search and Sample Return Project
+## Project: Search and Sample Return
 
+---
 
-![alt text][image_0] 
+#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  
 
-This project is modeled after the [NASA sample return challenge](https://www.nasa.gov/directorates/spacetech/centennial_challenges/sample_return_robot/index.html) and it will give you first hand experience with the three essential elements of robotics, which are perception, decision making and actuation.  You will carry out this project in a simulator environment built with the Unity game engine.  
+You're reading it!
 
-## The Simulator
-The first step is to download the simulator build that's appropriate for your operating system.  Here are the links for [Linux](https://s3-us-west-1.amazonaws.com/udacity-robotics/Rover+Unity+Sims/Linux_Roversim.zip), [Mac](	https://s3-us-west-1.amazonaws.com/udacity-robotics/Rover+Unity+Sims/Mac_Roversim.zip), or [Windows](https://s3-us-west-1.amazonaws.com/udacity-robotics/Rover+Unity+Sims/Windows_Roversim.zip).  
+### Notebook Analysis
+#### 1. Describe in your writeup (and identify where in your code) how you modified or added functions to add obstacle and rock sample identification.
 
-You can test out the simulator by opening it up and choosing "Training Mode".  Use the mouse or keyboard to navigate around the environment and see how it looks.
+1. Modified `color_thresh`  so that the Rover can detect the color between the low and high threshhold.
+2. Used following code to detect navigable, rocksample and obstacle vector in the image.
+`navigable = color_thresh(warped, (160, 160, 160), (255, 255, 255))
+rocksample = color_thresh(warped, (120, 120, 1), (255, 255, 80))
+obstacle = color_thresh(warped, (1, 1, 1), (159, 159, 159))`
+3. Then convert the vectors in the image coordinate system to another vectors in the rover local coordinate system.
+`obstacle_rovercoords = rover_coords(obstacle);
+rocksample_rovercoords = rover_coords(rocksample);
+navigable_rovercoords = rover_coords(navigable);`
+4. For rock and navigable area information, convert them to the rover local polar coordinate for later use in `decision.py`.
+`Rover.nav_dists, Rover.nav_angles = to_polar_coords(navigable_rovercoords[0], navigable_rovercoords[1])
+Rover.nav_rock_dists, Rover.nav_rock_angles = to_polar_coords(rocksample_rovercoords[0], rocksample_rovercoords[1])`
+5. The obstacle detection is done by `decision_dist` function in `decision.py`, which measures the distance to obstacles/walls of left, front and right of the rover. The function also records the distance information in the last frame to use it for the steering control of the rover.
+6. The rock detecton is done by `decision_step` function. The rover simply count the number of vector in `Rover.nav_rock_angles` and call `decision_steerangle` function to steer to the `np.clip(np.mean(Rover.nav_rock_angles * 180/np.pi) - 5, -15, 15)` degree. This angle is used not to go into the wall on left side of the rover.
 
-## Dependencies
-You'll need Python 3 and Jupyter Notebooks installed to do this project.  The best way to get setup with these if you are not already is to use Anaconda following along with the [RoboND-Python-Starterkit](https://github.com/ryan-keenan/RoboND-Python-Starterkit). 
+#### 1. Describe in your writeup how you modified the process_image() to demonstrate your analysis and how you created a worldmap. Include your video output with your submission.
 
+1. Created navigable, rocksample and obstacle vectors in the rover local coordinate system as the code below `obstacle_rovercoords = rover_coords(obstacle);
+rocksample_rovercoords = rover_coords(rocksample);
+navigable_rovercoords = rover_coords(navigable);`
+2. Converted the vectors in the rover local coordinate system to the vector in the world coordinate system as below. `pix_to_world` function uses translation and rotation of the vector for the conversion.
+`obstacle_worldcoords = pix_to_world(obstacle_rovercoords[0], obstacle_rovercoords[1], Rover.pos[0], Rover.pos[1], Rover.yaw, 200, 10)
+    rocksample_worldcoords = pix_to_world(rocksample_rovercoords[0], rocksample_rovercoords[1], Rover.pos[0], Rover.pos[1], Rover.yaw, 200, 10)
+    navigable_worldcoords = pix_to_world(navigable_rovercoords[0], navigable_rovercoords[1], Rover.pos[0], Rover.pos[1], Rover.yaw, 200, 10)`
+3. Then add color value to `Rover.worldmap` as below. I simply added all image values to world map when the rover's pitch and roll are close to 0.0 (`decision_roverstable` function in `perception.py`) and even added pixels far from the rover even if they are not so reliable.
+`if decision_roverstable(Rover) == True:
+    Rover.worldmap[obstacle_worldcoords[1], obstacle_worldcoords[0], 0] += 1
+    Rover.worldmap[rocksample_worldcoords[1], rocksample_worldcoords[0], 1] += 2
+    Rover.worldmap[navigable_worldcoords[1], navigable_worldcoords[0], 2] += 2
+    Rover.worldmap[navigable_worldcoords[1], navigable_worldcoords[0], 0] = 0`
 
-Here is a great link for learning more about [Anaconda and Jupyter Notebooks](https://classroom.udacity.com/courses/ud1111)
+The rover video is below.
+[![Everything Is AWESOME](https://img.youtube.com/vi/StTqXEQ2l-Y/0.jpg)](https://www.youtube.com/watch?v=StTqXEQ2l-Y "Everything Is AWESOME")]
 
-## Recording Data
-I've saved some test data for you in the folder called `test_dataset`.  In that folder you'll find a csv file with the output data for steering, throttle position etc. and the pathnames to the images recorded in each run.  I've also saved a few images in the folder called `calibration_images` to do some of the initial calibration steps with.  
+### Autonomous Navigation and Mapping
 
-The first step of this project is to record data on your own.  To do this, you should first create a new folder to store the image data in.  Then launch the simulator and choose "Training Mode" then hit "r".  Navigate to the directory you want to store data in, select it, and then drive around collecting data.  Hit "r" again to stop data collection.
+#### 1. Fill in the `perception_step()` (at the bottom of the `perception.py` script) and `decision_step()` (in `decision.py`) functions in the autonomous mapping scripts and an explanation is provided in the writeup of how and why these functions were modified as they were.
 
-## Data Analysis
-Included in the IPython notebook called `Rover_Project_Test_Notebook.ipynb` are the functions from the lesson for performing the various steps of this project.  The notebook should function as is without need for modification at this point.  To see what's in the notebook and execute the code there, start the jupyter notebook server at the command line like this:
+##### perception.py
+`decision_roverstable` function decides whether the rover is close to 0 pitch and roll. This function is used before adding values to the world map.
 
-```sh
-jupyter notebook
-```
+`perception_step` function modifications those are not yet described in this writeup is that it converts the origin point in world coordinate to the rover local polar coordinate.
 
-This command will bring up a browser window in the current directory where you can navigate to wherever `Rover_Project_Test_Notebook.ipynb` is and select it.  Run the cells in the notebook from top to bottom to see the various data analysis steps.  
+##### decosion.py
+Various `decision_***` functions decides if the rover is stopped, if the rover can go forward, and if the rover is stuck. To detect rover stuck, the rover uses how long is it in "Forward" mode. Those functions uses the distance to wall information measured in `decision_dist` function. `decision_throttle` and `decision_steerangle` are particularly important two decision functions those controls the rover based on the distance information and the information from other `decision_***` functions. 
 
-The last two cells in the notebook are for running the analysis on a folder of test images to create a map of the simulator environment and write the output to a video.  These cells should run as-is and save a video called `test_mapping.mp4` to the `output` folder.  This should give you an idea of how to go about modifying the `process_image()` function to perform mapping on your data.  
+`decision_steerangle`  has three modes. One is the exploration mode which uses left hand method, one is steer the rover to go forward a rock, and the last is steer the rover to the origin of the exploration. The steering angle is determined based on these rules.
+- the distance and the differential of the distance from left wall and the velocity of the rover (`steering_keepleft` function used in the exploration mode)
+- the distance and the differential of the distance from the right wall and the velocity of the rover (`steering_keepright` function used in the origin return mode)
+- the distance and the differential of the distance from the both wall and the velocity of the rover (`steering_keepmiddle` function used when going a narrow path in any mode) or 
+- the angle to the origin point (The if block which uses `Rover.seekprigin` in `decision_steerangle` function which becomes active after collecting all rocks. Once origin return mode is activated, the rover primarily steer toward the origin point and use either right hand method or left and method when it finds obstacles)
 
-## Navigating Autonomously
-The file called `drive_rover.py` is what you will use to navigate the environment in autonomous mode.  This script calls functions from within `perception.py` and `decision.py`.  The functions defined in the IPython notebook are all included in`perception.py` and it's your job to fill in the function called `perception_step()` with the appropriate processing steps and update the rover map. `decision.py` includes another function called `decision_step()`, which includes an example of a conditional statement you could use to navigate autonomously.  Here you should implement other conditionals to make driving decisions based on the rover's state and the results of the `perception_step()` analysis.
+`decision_throttle` switches the maximum speed based on the mode, distance from the wall, the rocks, or the origin point. It also slow down if the rover lost its wall on left.
 
-`drive_rover.py` should work as is if you have all the required Python packages installed. Call it at the command line like this: 
+`decision_step` defines stuckrecovery mode. Once rover detects it's not moving for 1 sec even in "forward" mode, it go back for 2 secs and stop, then turn right or left (based on which hand method the rover is using) for 1 sec.
 
-```sh
-python drive_rover.py
-```  
+#### 2. Launching in autonomous mode your rover can navigate and map autonomously.  Explain your results and how you might improve them in your writeup.  
 
-Then launch the simulator and choose "Autonomous Mode".  The rover should drive itself now!  It doesn't drive that well yet, but it's your job to make it better!  
+I used 640 x 480 resotion with good graphic setting. The FPS is shown in the video. It was about 27 to 30 fps.
 
-**Note: running the simulator with different choices of resolution and graphics quality may produce different results!  Make a note of your simulator settings in your writeup when you submit the project.**
+- The rover picked up all rocks in 940 sec. The mapped area was 93.9% and Fideliy is 76.1%.
+- I applied simple PI control to the steering angle control. It let the rover run. But I feel it is not stable enough. The parameter tuning was not well done.
+- I didn't implement the algorithm to avoid already mapped area. As a result, the rover explored the map twice after it found the rock on near the wall on right side of the rover and followed the wall with left hand method. The same happened for the last rock and it left a part of map unexplored.
+- I used break and quick steering a lot and it reduced the fidelity.
 
-### Project Walkthrough
-If you're struggling to get started on this project, or just want some help getting your code up to the minimum standards for a passing submission, we've recorded a walkthrough of the basic implementation for you but **spoiler alert: this [Project Walkthrough Video](https://www.youtube.com/watch?v=oJA6QHDPdQw) contains a basic solution to the project!**.
+If I would develop further, I will implement like this.
+- First, I will change the control method from the distance from the wall to the direction and the distance from the "target point" and at which direction it should look at the point. The target point is any of rock, the origin and the streak of points with certain distance from the left or right side wall of the rover.
+- Based on the direction and angle to the target point, the rover should select the optimal way to steer and accelerate.
+- The target point system will be a part of the target point queue system. The rover can queue multiple target points and effectively navigate the world. For example, when the rover finds the rock on far right while it navigating left hand method, it queues the rock position then queue the rover's current position. In that way, the rover can go back to the left hand method safely after picking up the rock.
 
-
+This was a fun homework!
