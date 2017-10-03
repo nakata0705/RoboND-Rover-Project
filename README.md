@@ -41,7 +41,8 @@ navigable_rovercoords = rover_coords(navigable);`
     Rover.worldmap[navigable_worldcoords[1], navigable_worldcoords[0], 0] = 0`
 
 The rover video is below.
-[![Everything Is AWESOME](https://img.youtube.com/vi/StTqXEQ2l-Y/0.jpg)](https://www.youtube.com/watch?v=StTqXEQ2l-Y "Everything Is AWESOME")]
+
+[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/yx9Vl5tLncs/0.jpg)](http://www.youtube.com/watch?v=yx9Vl5tLncs)
 
 ### Autonomous Navigation and Mapping
 
